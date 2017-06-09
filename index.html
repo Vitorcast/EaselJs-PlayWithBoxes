@@ -225,7 +225,15 @@
     Player.prototype.setPosition = function (x, y){        
         if(world[y] != null) {
             if(world[y][x] != null){
-                if (world[y][x] != W){
+                
+                if (world[y][x] == G){
+                    let oldX = this.positionX; 
+                    let oldY = this.positionY;
+                    alert('You Win!!! Fatality!!');
+                    foggedWorld[y][x] = G;
+                    foggedWorld[oldY][oldX] = E;
+                }  
+                else if (world[y][x] != W){
                     if( y <= world.length && y != this.positionY ) { 
                         let oldY = this.positionY;                
                         this.positionY = y; 
@@ -244,7 +252,8 @@
                         foggedWorld[y][x] = P;
                         foggedWorld[this.positionY][oldX] = E;
                     }
-                } else { 
+                } 
+                else { 
                     foggedWorld[y][x] = W;                    
                     alert('Boom... hit the wall!');
                 }
