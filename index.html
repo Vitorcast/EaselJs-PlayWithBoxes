@@ -1,14 +1,39 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title></title>
     <script src="easeljs-0.8.2.min.js"></script>
     <script src="tweenjs-0.6.2.min.js"></script>
+
 </head>
 
 <body onload="init()" style="margin: 20px">
 
-<canvas id="canvas" width="800" height="600" style="border: black solid 1px"></canvas>
+    <div style="float:left">
+        <h3>Steps: <span id="steps"></span></h3>
+        <div style="float:left" id="inventory">
+            Inventory (I):
+            <ul style="list-style-type: none;padding-left:0">                
+                <li><span id='item1'></li>
+                <li><span id='item2'></li>       
+        </ul>
+    </div>
+
+    <div>
+        <div style="float:left; clear:both; width:200px; height:300px; overflow-y:scroll; overflow-x:hidden">
+            <h3>Travel Log:</h3>
+            <ul id='log' style="list-style-type: none;padding-left:0">            
+            </ul>
+        </div>
+    </div>
+</div>
+<div style="float:left">
+    <canvas style="float:left;" id="canvas" width="800" height="600" style="border: black solid 1px"></canvas>
+    <div style="float:left;visibility:hidden" id="gameOver" width="800" height="600" style="border: black solid 1px">
+        Try Again? <button onclick="window.location='index.html'">Yes</button>    
+    </div> 
+</div>
 
 </body>
 
@@ -16,34 +41,55 @@
     var stage;
     var player = new Player();
     var rect;
+    var steps = 0;
     player.positionX = 4;
-    player.positionY = 3;
-    
-    const E=0,W=1,P=2, G=3, F=4; //Empty
-    const objets=['Empty', 'Wall', 'Player', 'Goal', 'Fog'];
-    const envColors=['white', 'orange', 'blue', 'green', 'grey'];
+    player.positionY = 7;
 
-    
+    const E = 0, W = 1, P = 2, G = 3, F = 4; N = 5; M = 6; I = 7; L = 8; //Empty
+    const objets = ['Empty', 'Wall', 'Player', 'Goal', 'Fog'];
+    const envColors = ['white', 'orange', 'blue', 'green', 'grey'];
+
+
     const ARROW_KEY_LEFT = 37;
     const ARROW_KEY_UP = 38;
     const ARROW_KEY_RIGHT = 39;
-    const ARROW_KEY_DOWN = 40;
+    const ARROW_KEY_DOWN = 40; 
+    const I_KEY_DOWN = 73;
+    const A_KEY_DOWN = 65;
+    const W_KEY_DOWN = 87;
+    const D_KEY_DOWN = 68;
+    const S_KEY_DOWN = 83;
+     
 
     var world = [
-        [W,W,G,W,W,W],
-        [W,E,E,E,E,W],
-        [W,E,W,E,E,W],
-        [W,W,W,W,P,W]
+        [W, W, G, W, W, W, W, W],
+        [W, M, E, E, E, E, E, W],
+        [W, W, W, W, E, E, E, W],
+        [W, E, E, E, E, W, E, W],
+        [W, W, E, W, W, W, E, W],
+        [W, W, E, E, E, W, E, W],
+        [N, E, E, W, E, W, E, W],
+        [I, E, W, W, P, W, E, L]
     ];
 
     var foggedWorld = [
-        [F,F,F,F,F,F],
-        [F,F,F,F,F,F],
-        [F,F,F,F,F,F],
-        [F,F,F,F,P,F]
+        [F, F, F, F, F, F, F, F],
+        [F, F, F, F, F, F, F, F],
+        [F, F, F, F, F, F, F, F],
+        [F, F, F, F, F, F, F, F],
+        [F, F, F, F, F, F, F, F],
+        [F, F, F, F, F, F, F, F],
+        [F, F, F, F, F, F, F, F],
+        [F, F, F, F, P, F, F, F]
     ];
-   
-    function $(id){return document.getElementById(id);}
+
+    function $(id) { return document.getElementById(id); }
+    function setLog(message) {
+        var ul = document.getElementById("log");
+        var li = document.createElement("li");
+        li.appendChild(document.createTextNode(message));
+        ul.insertBefore(li, ul.childNodes[0]);
+    }
 
     function init() {
         stage = new createjs.Stage(document.getElementById('canvas'));
@@ -51,25 +97,25 @@
         createjs.Ticker.setFPS(60);
         start();
     }
-    
+
     function handleTick(e) {
-        window.onkeydown = onDPad;      
+        window.onkeydown = onDPad;
         generateWorld($('canvas'), this.foggedWorld);
         stage.update();
     }
 
-    function generateRectangle(sC, fC, x, y, w, h){
+    function generateRectangle(sC, fC, x, y, w, h) {
         var rectangle = new createjs.Shape();
         rectangle.graphics.beginStroke(sC);
         rectangle.graphics.beginFill(fC);
         rectangle.graphics.drawRect(0, 0, w, h);
         rectangle.x = x
-        rectangle.y = y;        
+        rectangle.y = y;
         return rectangle;
-        
+
     }
 
-    function generateCircle(sC, fC, x, y, width, heigh, radius){
+    function generateCircle(sC, fC, x, y, width, heigh, radius) {
         var circle = new createjs.Shape();
         circle.graphics.beginStroke(sC);
         circle.graphics.beginFill(fC);
@@ -77,185 +123,197 @@
         circle.x = x;
         circle.y = y;
         return circle;
-    }   
+    }
 
-    function generateTriangle(sC, fC, x, y, startX, startY, points){
-        var tri = new createjs.Shape();
-        tri.graphics.beginStroke(sC);
-        tri.graphics.beginFill(fC);
-        tri.graphics.moveTo(50, 0)
-                .lineTo(0, 100)
-                .lineTo(100, 100)
-                .lineTo(50, 0);
-        tri.x = 20;
-        tri.y = 150;   
-        return tri;     
-    }   
-
-    function generateStar(sC, fC, x, y, startX, startY,  radius,  sides,  pointSize){
+    function generateStar(sC, fC, x, y, startX, startY, radius, sides, pointSize) {
         var poly = new createjs.Shape();
         poly.graphics.beginStroke(sC);
         poly.graphics.beginFill(fC);
-        poly.graphics.drawPolyStar(startX, startY,radius,  sides,  pointSize);
+        poly.graphics.drawPolyStar(startX, startY, radius, sides, pointSize);
         poly.x = x;
         poly.y = y;
-        return poly;     
-    } 
-    function generateRoundedRectangle(sC, fC, x, y, startX,  startY,  w,  h,  radiusTL,  radiusTR,  radiusBR,  radiusBL ){
-         var roundedRectangle = new createjs.Shape();
+        return poly;
+    }
+    function generateRoundedRectangle(sC, fC, x, y, startX, startY, w, h, radiusTL, radiusTR, radiusBR, radiusBL) {
+        var roundedRectangle = new createjs.Shape();
         roundedRectangle.graphics.beginStroke('#000');
         roundedRectangle.graphics.beginFill('#F7D0D1');
-        roundedRectangle.graphics.drawRoundRect( startX,  startY,  w,  h,  radiusTL,  radiusTR,  radiusBR,  radiusBL);
+        roundedRectangle.graphics.drawRoundRect(startX, startY, w, h, radiusTL, radiusTR, radiusBR, radiusBL);
         roundedRectangle.x = roundedRectangle.y = x;
         return roundedRectangle;
     }
 
-    function generateWorld(root, world){      
-        var x=0;
-        var y=0;  
-        var rect;      
+    function generateWorld(root, world) {
+        var x = 0;
+        var y = 0;
+        var rect;
         blockWidth = root.width / world[0].length;
-        blockHeight = root.height/ world.length;
-       
+        blockHeight = root.height / world.length;
+
 
         world.forEach(er => {
-            er.forEach(ec => {       
-                fillCollor=envColors[ec]; 
-                rect = generateRectangle('black',fillCollor,x,y,blockWidth,blockHeight);   
-                if (envColors[ec] == 'blue') this.player.playerRect = rect;                 
-                stage.addChild(rect);                
-                x += blockWidth; 
+            er.forEach(ec => {
+                fillCollor = envColors[ec];
+                if (ec == P) {
+                    rect = generateRectangle('black', 'white', x, y, blockWidth, blockHeight);
+                    stage.addChild(rect);
+                    rect = generateCircle('black', fillCollor, x, y, blockWidth / 2, blockHeight / 2, blockWidth / 4);
+                    stage.addChild(rect);
+                } else if (ec == M) {
+                    rect = generateRectangle('black', 'white', x, y, blockWidth, blockHeight);
+                    stage.addChild(rect);
+                    rect = generateCircle('black', 'red', x, y, blockWidth / 2, blockHeight / 2, blockWidth / 4);
+                    stage.addChild(rect);
+                }
+                else if (ec == N) {
+                    rect = generateRectangle('black', 'white', x, y, blockWidth, blockHeight);
+                    stage.addChild(rect);
+                    rect = generateCircle('black', 'brown', x, y, blockWidth / 2, blockHeight / 2, blockWidth / 4);
+                    stage.addChild(rect);
+                }
+                else if (ec == I) {
+                    rect = generateRectangle('black', 'white', x, y, blockWidth, blockHeight);
+                    stage.addChild(rect);
+                    rect = generateStar('black', 'yellow', x, y, blockWidth / 2, blockHeight / 2, blockWidth / 4, 5, 0.6);
+                    stage.addChild(rect);
+                }
+                else if (ec == L) {
+                    rect = generateRectangle('black', 'white', x, y, blockWidth, blockHeight);
+                    stage.addChild(rect);
+                    rect = generateStar('black', 'pink', x, y, blockWidth / 2, blockHeight / 2, blockWidth / 4, 5, 0.6);
+                    stage.addChild(rect);
+                }
+                else {
+                    rect = generateRectangle('black', fillCollor, x, y, blockWidth, blockHeight);
+                    stage.addChild(rect);
+                }
+                x += blockWidth;
             })
-            x = 0;            
-            y += blockHeight;            
+            x = 0;
+            y += blockHeight;
         });
-        
+
     }
-    
-    function onDPad(e){              
-        switch (e.keyCode){           
+
+    function onDPad(e) {       
+        switch (e.keyCode) {
             case ARROW_KEY_LEFT:
-                console.log('move left');                               
+                console.log('move left');
                 player.setPosition(player.positionX - 1, player.positionY);
                 break;
             case ARROW_KEY_UP:
                 console.log('move up');
-                player.setPosition(player.positionX, player.positionY - 1); 
+                player.setPosition(player.positionX, player.positionY - 1);
                 break;
             case ARROW_KEY_RIGHT:
                 console.log('move right');
-                player.setPosition(player.positionX + 1, player.positionY); 
+                player.setPosition(player.positionX + 1, player.positionY);
                 break;
             case ARROW_KEY_DOWN:
                 console.log('move down');
-                player.setPosition(player.positionX, player.positionY + 1); 
+                player.setPosition(player.positionX, player.positionY + 1);
+                break;
+            case A_KEY_DOWN:
+               console.log('move left');
+                player.setPosition(player.positionX - 1, player.positionY);
+                break;
+            case S_KEY_DOWN:
+                console.log('move down');
+                player.setPosition(player.positionX, player.positionY + 1);
+                break;
+            case D_KEY_DOWN:
+                console.log('move right');
+                player.setPosition(player.positionX + 1, player.positionY);
+                break;
+            case W_KEY_DOWN:
+                 console.log('move up');
+                player.setPosition(player.positionX, player.positionY - 1);
+                break;
+            case I_KEY_DOWN:
+                console.log('Opening/Closing Inventory');
+                if ($('inventory').style.visibility == 'hidden'){
+                    $('inventory').style.visibility = 'visible';
+                } else {
+                    $('inventory').style.visibility = 'hidden';
+                }
                 break;
         }
     }
 
-   
+
     function start() {
-        //RECTANGLE
-        // var rectangle = new createjs.Shape();
-        // rectangle.graphics.beginStroke('#000');
-        // rectangle.graphics.beginFill('#FF0000');
-        // rectangle.graphics.drawRect(0, 0, 150, 100);
-        // rectangle.x = rectangle.y = 20;
-        // stage.addChild(rectangle);
-
-        ///CIRCLE
-        // var circle = new createjs.Shape();
-        // circle.graphics.beginStroke('#000');
-        // circle.graphics.beginFill('#FFF000');
-        // circle.graphics.drawCircle(0, 0, 50);
-        // circle.x = 250;
-        // circle.y = 70;
-        //stage.addChild(generateCirle('#000', '#FFF000', 250, 70, 0, 0, 50));
-
-        // //STAR
-        // var poly = new createjs.Shape();
-        // poly.graphics.beginStroke('#000');
-        // poly.graphics.beginFill('#90ABC2');
-        // poly.graphics.drawPolyStar(0, 0, 60, 6, 0.6);
-        // poly.x = 400;
-        // poly.y = 70;
-        // stage.addChild(poly);
-
-        // //TRIANGLE
-        // var tri = new createjs.Shape();
-        // tri.graphics.beginStroke('#000');
-        // tri.graphics.beginFill('#00FF00');
-        // tri.graphics.moveTo(50, 0)
-        //         .lineTo(0, 100)
-        //         .lineTo(100, 100)
-        //         .lineTo(50, 0);
-        // tri.x = 20;
-        // tri.y = 150;
-        // stage.addChild(tri);
-
-        // ///ROUNDED RECTANGLE
-        // var roundedRectangle = new createjs.Shape();
-        // roundedRectangle.graphics.beginStroke('#000');
-        // roundedRectangle.graphics.beginFill('#F7D0D1');
-        // roundedRectangle.graphics.drawRoundRect(0,0,400,100,10);
-        // roundedRectangle.x = roundedRectangle.y = 150;
-        // stage.addChild(roundedRectangle);
-
-        // stage.addChild(getRectangle('#000', '#FF0000', 20,20, 150, 100));
-
-        //var rectangleWorld = getRectangle('#000', 'white', 20, 0, 50,100);
-        //stage.addChild(rectangleWorld);
-
-        // stage.addChild(generateCircle('black', 'white', 250, 70, 50, 50, 50 ));
-        // stage.addChild(generateRectangle('black', 'white', 20,20, 150, 100));
-        // stage.addChild(generateTriangle('black', 'white', 20, 20, 0, 150, 100));      
-        // stage.addChild(generateStar('black', 'white', 400, 70, 0,0,60,6,0.6));
-        // stage.addChild(generateRoundedRectangle('black', 'white', 150, 150, 0,0,400,100,10));
-
-       //generateWorld($('canvas'), this.world);
-
     }
 
-    function Player(){
+    function Player() {
         var positionX = 0;
         var positionY = 0;
         var playerRect = new createjs.Shape();
     }
 
-    Player.prototype.setPosition = function (x, y){        
-        if(world[y] != null) {
-            if(world[y][x] != null){
-                
-                if (world[y][x] == G){
-                    let oldX = this.positionX; 
+    Player.prototype.setPosition = function (x, y) {
+         steps += 1;
+        $('steps').textContent = steps;
+        if (world[y] != null) {
+            if (world[y][x] != null) {
+                if (world[y][x] == G) {
+                    let oldX = this.positionX;
                     let oldY = this.positionY;
-                    alert('You Win!!! Fatality!!');
-                    foggedWorld[y][x] = G;
+                    foggedWorld[y][x] = world[y][x];
                     foggedWorld[oldY][oldX] = E;
-                }  
-                else if (world[y][x] != W){
-                    if( y <= world.length && y != this.positionY ) { 
-                        let oldY = this.positionY;                
-                        this.positionY = y; 
+                    setLog('You Win!!! Awsome!!');                    
+                }
+                else if (world[y][x] == E) {
+                    if (y <= world.length && y != this.positionY) {
+                        let oldY = this.positionY;
+                        this.positionY = y;
                         world[y][x] = P;
-                        world[oldY][this.positionX] = E;  
-                        foggedWorld[y][x] = P;
-                        foggedWorld[oldY][this.positionX] = E;  
+                        world[oldY][this.positionX] = E;
+                        foggedWorld[y][x] = world[y][x];
+                        foggedWorld[oldY][this.positionX] = E;
                         //createjs.Tween.get(player.playerRect).to({alpha:0}, 1000);
                         //createjs.Tween.get(player.playerRect).to({alpha:0, y:player.playerRect.y - 100}, 1000);
-                    }           
-                    if (x <= world[0].length && x != this.positionX) { 
-                        let oldX = this.positionX;                
+                    }
+                    if (x <= world[0].length && x != this.positionX) {
+                        let oldX = this.positionX;
                         this.positionX = x;
                         world[y][x] = P;
                         world[this.positionY][oldX] = E;
-                        foggedWorld[y][x] = P;
+                        foggedWorld[y][x] = world[y][x];
                         foggedWorld[this.positionY][oldX] = E;
                     }
-                } 
-                else { 
-                    foggedWorld[y][x] = W;                    
-                    alert('Boom... hit the wall!');
+                }
+                else if (world[y][x] == M) {
+                    foggedWorld[y][x] = world[y][x];                    
+                    setLog('Bammm... You Got Hit!'); 
+                    setLog('Your game will be reset');
+                    foggedWorld[this.positionY][this.positionX] = E;    
+                    foggedWorld[7][4]  = P;     
+                    world[7][4] = P; 
+                    world[this.positionY][this.positionX] = E;
+                    player.positionX = 4;
+                    player.positionY = 7;  
+
+                }
+                else if (world[y][x] == N) {
+                    foggedWorld[y][x] = world[y][x];                    
+                    setLog('Bammm... You Got Hit!');   
+                    setLog('GAME OVER!!');
+                    $('canvas').style.visibility = 'hidden';    
+                    $('gameOver').style.visibility = 'visible';             
+                }
+                else if (world[y][x] == I) {
+                    foggedWorld[y][x] = world[y][x];                   
+                    setLog('Tadaaa... You got a sword!');
+                    $('item1').textContent = "Greater Sword of Tomorrow!";
+                }
+                else if (world[y][x] == L) {
+                    foggedWorld[y][x] = world[y][x];
+                    setLog('Tadaaa... You got a shield!');                   
+                    $('item2').textContent = "Greater Shield of Yesterday!";
+                }
+                else {
+                    foggedWorld[y][x] = W;
+                    setLog('Boom... You hit the wall!');
                 }
             } else alert('There is no escape from The Maze');
         } else alert('There is no escape from The Maze');
